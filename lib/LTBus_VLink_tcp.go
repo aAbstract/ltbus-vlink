@@ -3,6 +3,7 @@ package lib
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/signal"
@@ -10,7 +11,9 @@ import (
 	"syscall"
 )
 
-var VLink_TCP_connections = make(map[string]net.Conn, 32)
+const VLink_Clients_Max = 32
+
+var VLink_TCP_connections = make(map[string]net.Conn, VLink_Clients_Max)
 
 func print_VLink_TCP_connections() {
 	fmt.Printf("VLink TCP Connections: %d\n", len(VLink_TCP_connections))
@@ -41,12 +44,13 @@ func tcp_server_loop(tcp_server net.Listener) {
 
 func tcp_client_loop(tcp_client net.Conn) {
 	for {
-		rx_buffer := make([]byte, 6)
-		n, err := tcp_client.Read(rx_buffer)
+		var rx_buffer [6]byte
+		n, err := io.ReadFull(tcp_client, rx_buffer[:])
 		if err != nil || n != 6 {
 			tcp_client_close(tcp_client)
 			break
 		}
+		VLink_WPkt_Chn <- rx_buffer
 	}
 	fmt.Printf("VLink TCP Client Loop Stopped: %s\n", tcp_client.RemoteAddr())
 }

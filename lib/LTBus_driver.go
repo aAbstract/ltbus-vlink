@@ -2,6 +2,7 @@ package lib
 
 import (
 	"encoding/binary"
+	"math"
 )
 
 const DEFAULT_SLAVE_ID uint8 = 0x01
@@ -60,17 +61,16 @@ var crc16_table = []uint16{
 	0x7BC7, 0x6A4E, 0x58D5, 0x495C, 0x3DE3, 0x2C6A, 0x1EF1, 0x0F78,
 }
 
-func LTBus_Compute_CRC16(data []byte, data_size uint16) uint16 {
+func LTBus_Compute_CRC16(data []byte) uint16 {
 	crc16 := uint16(0xFFFF)
-	for i := range data_size {
-		b := data[i]
+	for _, b := range data {
 		crc16 = (crc16 >> 8) ^ crc16_table[(crc16^uint16(b))&0xFF]
 	}
 	return ^crc16
 }
 
-func LTBus_Read_Request(address uint16, data_size uint16) []byte {
-	out_packet := make([]byte, 10)
+func LTBus_Read_Request(address uint16, data_size uint16) [10]byte {
+	var out_packet [10]byte
 	out_packet[0] = 0x7B
 	out_packet[1] = DEFAULT_SLAVE_ID
 	out_packet[2] = LTBUS_READ_FC
@@ -81,10 +81,36 @@ func LTBus_Read_Request(address uint16, data_size uint16) []byte {
 	out_packet[5] = byte(data_size & 0xFF)
 	out_packet[6] = byte((data_size >> 8) & 0xFF)
 
-	crc16 := LTBus_Compute_CRC16(out_packet, 7)
+	crc16 := LTBus_Compute_CRC16(out_packet[:7])
 	out_packet[7] = byte(crc16 & 0xFF)
 	out_packet[8] = byte((crc16 >> 8) & 0xFF)
 	out_packet[9] = 0x7D
+	return out_packet
+}
+
+func LTBus_Write_F32_Request(address uint16, value float32) [14]byte {
+	var out_packet [14]byte
+
+	out_packet[0] = 0x7B
+	out_packet[1] = DEFAULT_SLAVE_ID
+	out_packet[2] = LTBUS_WRITE_FC
+
+	out_packet[3] = byte(address & 0xFF)
+	out_packet[4] = byte((address >> 8) & 0xFF)
+
+	out_packet[5] = 0x04
+	out_packet[6] = 0x00
+
+	raw_f32 := math.Float32bits(value)
+	out_packet[7] = byte(raw_f32 & 0xFF)
+	out_packet[8] = byte((raw_f32 >> 8) & 0xFF)
+	out_packet[9] = byte((raw_f32 >> 16) & 0xFF)
+	out_packet[10] = byte((raw_f32 >> 24) & 0xFF)
+
+	crc16 := LTBus_Compute_CRC16(out_packet[:9])
+	out_packet[11] = byte(crc16 & 0xFF)
+	out_packet[12] = byte((crc16 >> 8) & 0xFF)
+	out_packet[13] = 0x7D
 	return out_packet
 }
 

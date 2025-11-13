@@ -29,10 +29,23 @@ func LTBus_VLink_Device_Loop() {
 		}
 
 		dt := time.Since(start)
-		fmt.Printf("Delat_T: %dus\n", dt.Microseconds())
+		fmt.Printf("Delta_T: %dus\n", dt.Microseconds())
 
 		time.Sleep(1 * time.Millisecond)
 	}
 }
 // Delta_T: ~250us / 4KHz
+```
+
+### Analyze Heap Allocations
+```bash
+$ python scripts/heap_diag.py
+
+lib/LTBus_VLink_tcp.go:16:33: make(map[string]net.Conn, 32) escapes to heap -> var VLink_TCP_connections = make(map[string]net.Conn, VLink_Clients_Max)
+lib/LTBus_VLink_device.go:19:23: make([][6]byte, 32768) escapes to heap -> var VLink_WPool = make([][6]byte, VLink_Clients_Max*1024)
+lib/LTBus_VLink_tcp.go:90:8: func literal escapes to heap -> wg.Go(func() {
+lib/LTBus_VLink_tcp.go:101:8: func literal escapes to heap -> wg.Go(func() { tcp_server_loop(tcp_server) })
+lib/LTBus_VLink_device.go:23:23: append escapes to heap -> VLink_WPool = append(VLink_WPool, WPkt)
+lib/LTBus_VLink_device.go:71:19: make([]byte, packet_size) escapes to heap -> rx_buffer := make([]byte, packet_size)
+lib/LTBus_VLink_device.go:136:8: func literal escapes to heap -> wg.Go(func() { LTBus_VLink_Device_Loop(serial_port, *packet_size, stop_signal) })
 ```

@@ -15,15 +15,61 @@ import (
 
 var VLink_Debug bool
 
+var VLink_WPkt_Chn = make(chan [6]byte, VLink_Clients_Max*16)
+var VLink_WPool = make([][6]byte, VLink_Clients_Max*1024)
+
+func VLink_WPool_manager(vlink_wpkt_chn <-chan [6]byte) {
+	for WPkt := range vlink_wpkt_chn {
+		VLink_WPool = append(VLink_WPool, WPkt)
+	}
+}
+
 func CheckCRC(data []byte) bool {
 	data_len := len(data)
-	calc_crc16 := LTBus_Compute_CRC16(data, uint16(data_len-3))
+	calc_crc16 := LTBus_Compute_CRC16(data[:data_len-3])
 	crc16_bytes := []byte{data[data_len-3], data[data_len-2]}
 	packet_crc16 := binary.LittleEndian.Uint16(crc16_bytes)
 	return calc_crc16 == packet_crc16
 }
 
+func device_loop_write(serial_port *serial.Port) {
+	if len(VLink_WPool) == 0 {
+		return
+	}
+
+	// for _, WPkt := range VLink_WPool {
+
+	// }
+}
+
+func device_loop_read(serial_port *serial.Port, rx_buffer []byte) {
+	packet_size := len(rx_buffer)
+	data_size := packet_size - 10
+	ltbrr_mmap := LTBus_Read_Request(0xD000, uint16(data_size))
+	serial_port.Write(ltbrr_mmap[:])
+
+	n_bytes, err := serial_port.Read(rx_buffer)
+	if err != nil || n_bytes != packet_size {
+		return
+	}
+
+	if rx_buffer[0] != 0x7B || rx_buffer[packet_size-1] != 0x7D {
+		fmt.Printf("Invalid LTBus Packet Frame\n")
+		return
+	}
+
+	if !CheckCRC(rx_buffer) {
+		fmt.Printf("Invalid LTBus Packet CRC\n")
+		return
+	}
+
+	mmap := rx_buffer[7 : 7+data_size]
+	LTBus_VLink_Broadcast(mmap)
+}
+
 func LTBus_VLink_Device_Loop(serial_port *serial.Port, packet_size int, stop_signal <-chan os.Signal) {
+	rx_buffer := make([]byte, packet_size)
+
 	for {
 		select {
 
@@ -38,29 +84,8 @@ func LTBus_VLink_Device_Loop(serial_port *serial.Port, packet_size int, stop_sig
 			return
 
 		default:
-			data_size := packet_size - 10
-			ltbrr_mmap := LTBus_Read_Request(0xD000, uint16(data_size))
-			serial_port.Write(ltbrr_mmap)
-
-			rx_buffer := make([]byte, packet_size)
-			n_bytes, err := serial_port.Read(rx_buffer)
-			if err != nil || n_bytes != packet_size {
-				continue
-			}
-
-			if rx_buffer[0] != 0x7B || rx_buffer[packet_size-1] != 0x7D {
-				fmt.Printf("Invalid LTBus Packet Frame\n")
-				continue
-			}
-
-			if !CheckCRC(rx_buffer) {
-				fmt.Printf("Invalid LTBus Packet CRC\n")
-				continue
-			}
-
-			mmap := rx_buffer[7 : 7+data_size]
-			LTBus_VLink_Broadcast(mmap)
-
+			device_loop_write(serial_port)
+			device_loop_read(serial_port, rx_buffer)
 			time.Sleep(1 * time.Millisecond)
 		}
 	}
@@ -83,20 +108,20 @@ func LTBus_VLink_Device_Init(wg *sync.WaitGroup) {
 	}
 
 	ltbrr_device_id := LTBus_Read_Request(0xA000, 2)
-	serial_port.Write(ltbrr_device_id)
-	rx_buffer := make([]byte, 12)
-	n_bytes, err := serial_port.Read(rx_buffer)
+	serial_port.Write(ltbrr_device_id[:])
+	var rx_buffer [12]byte
+	n_bytes, err := serial_port.Read(rx_buffer[:])
 	if err != nil || n_bytes != 12 {
 		fmt.Printf("Can not Read Device ID @ 0xA000: Invalid LTBus Packet Frame\n")
 		os.Exit(1)
 	}
 
-	if !CheckCRC(rx_buffer) {
+	if !CheckCRC(rx_buffer[:]) {
 		fmt.Printf("Can not Read Device ID @ 0xA000: Invalid CRC\n")
 		os.Exit(1)
 	}
 
-	_device_id := LTBus_Decode_U16(rx_buffer)
+	_device_id := LTBus_Decode_U16(rx_buffer[:])
 	sw_id := uint16(*device_id)
 	if _device_id != sw_id {
 		fmt.Printf("Device ID Mismatch HW_ID: 0x%04X, SW_ID: 0x%04X\n", _device_id, sw_id)
