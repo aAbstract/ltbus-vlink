@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"flag"
 	"fmt"
+	"math"
 	"os"
 	"os/signal"
 	"sync"
@@ -16,12 +17,19 @@ import (
 var VLink_Debug bool
 
 var VLink_WPkt_Chn = make(chan [6]byte, VLink_Clients_Max*16)
-var VLink_WPool = make([][6]byte, VLink_Clients_Max*1024)
+var VLink_WPool = make([][6]byte, 0, VLink_Clients_Max*1024)
 
-func VLink_WPool_manager(vlink_wpkt_chn <-chan [6]byte) {
-	for WPkt := range vlink_wpkt_chn {
+func VLink_WPool_manager() {
+	for {
+		WPkt, ok := <-VLink_WPkt_Chn
+		if !ok {
+			fmt.Printf("Stopping Device VLink_WPool_manager...\n")
+			break
+		}
+
 		VLink_WPool = append(VLink_WPool, WPkt)
 	}
+	fmt.Printf("Stopping Device VLink_WPool_manager...OK\n")
 }
 
 func CheckCRC(data []byte) bool {
@@ -37,9 +45,15 @@ func device_loop_write(serial_port *serial.Port) {
 		return
 	}
 
-	// for _, WPkt := range VLink_WPool {
-
-	// }
+	for _, WPkt := range VLink_WPool {
+		address_bytes := []byte{WPkt[0], WPkt[1]}
+		data_bytes := []byte{WPkt[2], WPkt[3], WPkt[4], WPkt[5]}
+		address := binary.LittleEndian.Uint16(address_bytes)
+		data := binary.LittleEndian.Uint32(data_bytes)
+		ltbwr := LTBus_Write_F32_Request(address, math.Float32frombits(data))
+		serial_port.Write(ltbwr[:])
+	}
+	VLink_WPool = VLink_WPool[:0]
 }
 
 func device_loop_read(serial_port *serial.Port, rx_buffer []byte) {
@@ -81,12 +95,13 @@ func LTBus_VLink_Device_Loop(serial_port *serial.Port, packet_size int, stop_sig
 			} else {
 				fmt.Printf("Closing Device...OK\n")
 			}
+
+			close(VLink_WPkt_Chn)
 			return
 
 		default:
 			device_loop_write(serial_port)
 			device_loop_read(serial_port, rx_buffer)
-			time.Sleep(1 * time.Millisecond)
 		}
 	}
 }
@@ -134,4 +149,5 @@ func LTBus_VLink_Device_Init(wg *sync.WaitGroup) {
 	stop_signal := make(chan os.Signal, 1)
 	signal.Notify(stop_signal, os.Interrupt, syscall.SIGINT)
 	wg.Go(func() { LTBus_VLink_Device_Loop(serial_port, *packet_size, stop_signal) })
+	wg.Go(VLink_WPool_manager)
 }

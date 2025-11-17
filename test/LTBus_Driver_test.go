@@ -11,7 +11,7 @@ func Test_LTBus_read_request(t *testing.T) {
 	request_packet := lib.LTBus_Read_Request(0xD004, 4)
 	expected_packet := [10]byte{0x7B, 0x01, 0xAA, 0x04, 0xD0, 0x04, 0x00, 0x7A, 0xD3, 0x7D}
 	if request_packet != expected_packet {
-		t.Error("Invalid Request Packet")
+		t.Error("Packet Mismatch")
 	}
 }
 
@@ -19,5 +19,13 @@ func Test_LTBus_CheckCRC(t *testing.T) {
 	packet := []byte{0x7B, 0x01, 0xAB, 0x00, 0xA0, 0x02, 0x00, 0x01, 0x50, 0xA8, 0x7C, 0x7D}
 	if !lib.CheckCRC(packet) {
 		t.Error("Invalid CRC")
+	}
+}
+
+func Test_LTBus_Write_F32_Request(t *testing.T) {
+	request_packet := lib.LTBus_Write_F32_Request(0xD000, 12.34)
+	expected_packet := [14]byte{0x7B, 0x01, 0xEA, 0x00, 0xD0, 0x04, 0x00, 0xA4, 0x70, 0x45, 0x41, 0xB9, 0xD1, 0x7D}
+	if request_packet != expected_packet {
+		t.Error("Packet Mismatch")
 	}
 }

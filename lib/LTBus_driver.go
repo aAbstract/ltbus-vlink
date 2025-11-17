@@ -107,7 +107,7 @@ func LTBus_Write_F32_Request(address uint16, value float32) [14]byte {
 	out_packet[9] = byte((raw_f32 >> 16) & 0xFF)
 	out_packet[10] = byte((raw_f32 >> 24) & 0xFF)
 
-	crc16 := LTBus_Compute_CRC16(out_packet[:9])
+	crc16 := LTBus_Compute_CRC16(out_packet[:11])
 	out_packet[11] = byte(crc16 & 0xFF)
 	out_packet[12] = byte((crc16 >> 8) & 0xFF)
 	out_packet[13] = 0x7D
