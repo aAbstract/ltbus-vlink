@@ -74,6 +74,8 @@ func tcp_client_close(vlink_conn *VLinkConnection) {
 }
 
 func LTBus_VLink_Broadcast(packet []byte) {
+	// VLink_UDP_Socket.Write(packet)
+
 	for _, vlink_conn := range VLink_TCP_connections {
 		if vlink_conn.VLink_Speed_ms == 0 {
 			_, err := vlink_conn.Conn.Write(packet)
@@ -107,7 +109,23 @@ func create_VLink_Listener(wg *sync.WaitGroup, addr string, vlink_speed_ms int) 
 	return vlink_listener
 }
 
-func LTBus_VLink_TCP_Init(wg *sync.WaitGroup) {
+var VLink_UDP_Socket net.Conn
+var _ = init_VLink_udp_socket // remove unused compile error
+func init_VLink_udp_socket() {
+	vlink_udp_addr := "127.0.0.1:6500"
+	fmt.Printf("Creating VLink UDP Connection at %s...\n", vlink_udp_addr)
+	var vlink_udp_err error
+	VLink_UDP_Socket, vlink_udp_err = net.Dial("udp", vlink_udp_addr)
+	if vlink_udp_err != nil {
+		fmt.Printf("Creating VLink UDP Connection at %s...ERR\n%s\n", vlink_udp_addr, vlink_udp_err)
+		os.Exit(1)
+	}
+	fmt.Printf("Creating VLink UDP Connection at %s...OK\n", vlink_udp_addr)
+}
+
+func LTBus_VLink_Net_Init(wg *sync.WaitGroup) {
+	// init_VLink_udp_socket()
+
 	vlink_listener_0ms := create_VLink_Listener(wg, "127.0.0.1:6400", 0)
 	vlink_listener_10ms := create_VLink_Listener(wg, "127.0.0.1:6401", 10)
 
@@ -116,9 +134,10 @@ func LTBus_VLink_TCP_Init(wg *sync.WaitGroup) {
 
 	wg.Go(func() {
 		<-stop_signal
-		fmt.Printf("Closing VLink TCP Servers...\n")
+		fmt.Printf("Closing VLink Connections...\n")
+		// VLink_UDP_Socket.Close()
 		vlink_listener_0ms.Close()
 		vlink_listener_10ms.Close()
-		fmt.Printf("Closing VLink TCP Servers...OK\n")
+		fmt.Printf("Closing VLink Connections...OK\n")
 	})
 }
