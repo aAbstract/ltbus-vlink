@@ -23,7 +23,7 @@ def get_latest_mmap(mmap_size: int) -> bytes:
 
 
 if __name__ == '__main__':
-    vlink_server_sock.connect(('127.0.0.1', 6400))
+    vlink_server_sock.connect(('127.0.0.1', 6401))
     dts = []
 
     for i in range(1, 100_0, 10):

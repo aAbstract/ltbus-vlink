@@ -20,7 +20,7 @@ type VLinkConnection struct {
 	Conn           net.Conn
 }
 
-var VLink_TCP_connections = make(map[string]VLinkConnection, VLink_Clients_Max)
+var VLink_TCP_connections = make(map[string]*VLinkConnection, VLink_Clients_Max)
 
 func print_VLink_TCP_connections() {
 	fmt.Printf("VLink TCP Connections: %d\n", len(VLink_TCP_connections))
@@ -39,7 +39,7 @@ func tcp_server_loop(tcp_server net.Listener, vlink_speed_ms int) {
 			return
 		}
 
-		vlink_conn := VLinkConnection{VLink_Speed_ms: vlink_speed_ms, VLink_Tick_ms: 0, Conn: conn}
+		vlink_conn := &VLinkConnection{VLink_Speed_ms: vlink_speed_ms, VLink_Tick_ms: 0, Conn: conn}
 		fmt.Printf("Received VLink TCP Connection: %+v\n", vlink_conn)
 		VLink_TCP_connections[conn.RemoteAddr().String()] = vlink_conn
 		go tcp_client_loop(vlink_conn)
@@ -50,7 +50,7 @@ func tcp_server_loop(tcp_server net.Listener, vlink_speed_ms int) {
 	}
 }
 
-func tcp_client_loop(vlink_conn VLinkConnection) {
+func tcp_client_loop(vlink_conn *VLinkConnection) {
 	for {
 		var rx_buffer [6]byte
 		n, err := io.ReadFull(vlink_conn.Conn, rx_buffer[:])
@@ -63,7 +63,7 @@ func tcp_client_loop(vlink_conn VLinkConnection) {
 	fmt.Printf("VLink TCP Client Loop Stopped: %s\n", vlink_conn.Conn.RemoteAddr())
 }
 
-func tcp_client_close(vlink_conn VLinkConnection) {
+func tcp_client_close(vlink_conn *VLinkConnection) {
 	conn_addr := vlink_conn.Conn.RemoteAddr().String()
 	vlink_conn.Conn.Close()
 	delete(VLink_TCP_connections, conn_addr)
