@@ -89,7 +89,7 @@ func shell_server_loop(shell_server net.Listener) {
 }
 
 func LTBus_VLink_Shell_Init(wg *sync.WaitGroup) {
-	shell_addr := "127.0.0.1:6401"
+	shell_addr := "127.0.0.1:6402"
 	fmt.Printf("Starting VLink Shell Server at %s...\n", shell_addr)
 	shell_server, err := net.Listen("tcp", shell_addr)
 	if err != nil {

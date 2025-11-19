@@ -124,3 +124,8 @@ func main() {
 ```go
 $ go tool trace trace.out
 ```
+
+### Connect to VLink Shell
+```bash
+$ rlwrap nc 127.0.0.1 6402
+```
