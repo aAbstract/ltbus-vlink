@@ -129,6 +129,3 @@ $ go tool trace trace.out
 ```bash
 $ rlwrap nc 127.0.0.1 6402
 ```
-
-<iframe width="800" height="400" src="https://docs.google.com/document/d/e/2PACX-1vRmNVQVHpsq_5u5agFVhArNwOxfNeFXoH3OJCetjPoqCD5i95zOj36_68w46ZrTw_K88d0HOCrP42Hi/pub?embedded=true"></iframe>
-
